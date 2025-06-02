@@ -9,8 +9,29 @@ class Window:
         self.window = dpg.window(label="Window", tag="Window")
 
         with self.window:
-            dpg.add_text("Conway's Game of Life")
+            with dpg.menu_bar():
+                with dpg.menu(label="File"):
+                    dpg.add_menu_item(label="New", callback=lambda: print("New"))
+                    dpg.add_menu_item(label="Open", callback=lambda: print("Open"))
+                    dpg.add_menu_item(label="Save", callback=lambda: print("Save"))
+                    dpg.add_menu_item(label="Save As", callback=lambda: print("Save As"))
+                    dpg.add_menu_item(label="Settings", callback=dpg.stop_dearpygui)
+                    dpg.add_menu_item(label="Exit", callback=dpg.stop_dearpygui)
 
+            with dpg.group(horizontal=True):
+                dpg.add_text("Hello")
+                dpg.add_button(label="Run simulation")
+                dpg.add_button(label="Stop simulation")
+                dpg.add_button(label="Step forward")
+                dpg.add_drag_double(label="Simulation speed", default_value=1.0, min_value=0.0, max_value=10.0,
+                                    speed=0.05, width=150)
+
+            with dpg.drawlist(width=400, height=300,callback=self.test):
+                dpg.draw_rectangle((10, 10), (50, 50), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
+
+    def test(self, sender, app_data, user_data):
+        print(sender, app_data, user_data)
+        print(dpg.get_mouse_pos())
 
 
 window = Window()
