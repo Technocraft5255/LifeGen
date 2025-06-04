@@ -32,12 +32,12 @@ class Window:
                 dpg.add_drag_double(label="Simulation speed", default_value=1.0, min_value=0.0, max_value=10.0,
                                     speed=0.05, width=150)
 
-            with dpg.drawlist(width=400, height=300,callback=self.test):
+            with dpg.drawlist(width=400, height=300):  # drawlist (,callback=self.test)
                 dpg.draw_rectangle((10, 10), (50, 50), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
 
-    def test(self, sender, app_data, user_data):
+    """def test(self, sender, app_data, user_data):
         print(sender, app_data, user_data)
-        print(dpg.get_mouse_pos())
+        print(dpg.get_mouse_pos())"""
 
 
 window = Window()
