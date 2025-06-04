@@ -1,5 +1,5 @@
 import dearpygui.dearpygui as dpg
-
+from bin import theme
 dpg.create_context()
 dpg.create_viewport(title='Custom Title', width=600, height=200)
 
@@ -7,6 +7,7 @@ dpg.create_viewport(title='Custom Title', width=600, height=200)
 class Window:
     def __init__(self):
         self.window = dpg.window(label="Window", tag="Window")
+        theme.set_font("segoeui.ttf", 16, True)
 
         with self.window:
             with dpg.menu_bar():
@@ -17,6 +18,11 @@ class Window:
                     dpg.add_menu_item(label="Save As", callback=lambda: print("Save As"))
                     dpg.add_menu_item(label="Settings", callback=dpg.stop_dearpygui)
                     dpg.add_menu_item(label="Exit", callback=dpg.stop_dearpygui)
+                with dpg.menu(label="Edit"):
+                    dpg.add_menu_item(label="Undo", callback=lambda: print("Undo"))
+                    dpg.add_menu_item(label="Redo", callback=lambda: print("Redo"))
+                with dpg.menu(label="Help"):
+                    dpg.add_menu_item(label="About", callback=lambda: print("About"))
 
             with dpg.group(horizontal=True):
                 dpg.add_text("Hello")
@@ -35,6 +41,9 @@ class Window:
 
 
 window = Window()
+
+theme = theme.theme_load()
+dpg.bind_theme(theme)
 
 dpg.setup_dearpygui()
 dpg.show_viewport()
