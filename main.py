@@ -32,6 +32,8 @@ class Window:
                 dpg.add_drag_double(label="Simulation speed", default_value=1.0, min_value=0.0, max_value=10.0,
                                     speed=0.05, width=150)
 
+
+
             with dpg.drawlist(width=700, height=700):  # drawlist (,callback=self.test)
                 for i in range(10):
                     for j in range(10):
