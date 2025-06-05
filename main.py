@@ -32,8 +32,16 @@ class Window:
                 dpg.add_drag_double(label="Simulation speed", default_value=1.0, min_value=0.0, max_value=10.0,
                                     speed=0.05, width=150)
 
-            with dpg.drawlist(width=400, height=300):  # drawlist (,callback=self.test)
+            with dpg.drawlist(width=700, height=700):  # drawlist (,callback=self.test)
+                for i in range(10):
+                    for j in range(10):
+                        dpg.draw_rectangle((10 + 50 * i, 10 + 50 * j), (50 + 50 * i, 50 + 50 * j),
+                                           fill=(0, 0, 255), color=(0, 0, 255), thickness=0.0)
                 dpg.draw_rectangle((10, 10), (50, 50), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
+                dpg.draw_rectangle((60, 10), (100, 50), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
+                dpg.draw_rectangle((10, 60), (50, 100), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
+                dpg.draw_rectangle((60, 60), (100, 100), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
+
 
     """def test(self, sender, app_data, user_data):
         print(sender, app_data, user_data)
