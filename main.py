@@ -34,7 +34,7 @@ class Window:
 
 
 
-            with dpg.drawlist(width=700, height=700,callback=self.test):  # drawlist ()
+            with dpg.drawlist(width=700, height=700,callback=self.test):  #  drawlist ()
                 for i in range(10):
                     for j in range(10):
                         dpg.draw_rectangle((10 + 50 * i, 10 + 50 * j), (50 + 50 * i, 50 + 50 * j),
