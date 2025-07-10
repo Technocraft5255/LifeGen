@@ -25,6 +25,7 @@ def theme_load():
             dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, (240, 240, 240), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive, (240, 240, 240), category=dpg.mvThemeCat_Core)
 
+
             # dpg.add_theme_color(dpg.mvThemeCol_CheckMark, theme_data["color"]["check_mark"], category=dpg.mvThemeCat_Core)
 
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 4, category=dpg.mvThemeCat_Core)

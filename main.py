@@ -5,14 +5,15 @@ dpg.create_context()
 dpg.create_viewport(title='Custom Title', width=600, height=200)
 
 
-class Window:
-    def __init__(self):
+class App:
+    def __init__(self, game):
+        self.game = game
         theme.set_font("segoeui.ttf", 16, True)
-
         self.window = dpg.add_window(label="Main Window", tag="main_window")
+        self.build_controls()
         self.build_drawlist()
         self.build_menu()
-        self.build_controls()
+
         """
         self.window = dpg.window(label="Window", tag="Window")
         theme.set_font("segoeui.ttf", 16, True)
@@ -70,33 +71,13 @@ class Window:
                 dpg.draw_rectangle((60, 60), (100, 100), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)"""
 
     def build_drawlist(self):
-        dpg.add_drawlist(tag="drawlist", parent=self.window, width=800, height=600, pos=(0, 0))
-
-        dpg.draw_rectangle((0, 0), (800, 600), fill=(110, 110, 110), color=(110, 110, 110),
-                           tag="background_rect", parent="drawlist")
-        for i in range(40):
-            for j in range(30):
-                dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j),
-                                   fill=(75, 75, 75), color=(75, 75, 75), thickness=0.0, parent="drawlist")
-        i = 13
-        j = 10
-        dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j), fill=(255, 255, 255),
-                           color=(255, 255, 255), thickness=0.0, parent="drawlist")
-        i = 14
-        j = 10
-        dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j), fill=(255, 255, 255),
-                           color=(255, 255, 255), thickness=0.0, parent="drawlist")
-        i = 14
-        j = 9
-        dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j), fill=(255, 255, 255),
-                           color=(255, 255, 255), thickness=0.0, parent="drawlist")
-        i = 13
-        j = 8
-        dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j), fill=(255, 255, 255),
-                           color=(255, 255, 255), thickness=0.0, parent="drawlist")
+        dpg.add_drawlist(tag="drawlist", parent=self.window, width=800, height=600, pos=(0, 0), callback=self.test)
+        dpg.draw_rectangle((0, 0), (800, 600), fill=(110, 110, 110), color=(110, 110, 110), parent="drawlist",
+                           tag="background_rect")
+        self.update_drawlist()
 
     def build_menu(self):
-        dpg.add_menu_bar(parent="main_window", tag="menu_bar")
+        dpg.add_menu_bar(parent=self.window, tag="menu_bar")
         dpg.add_menu(label="File", parent="menu_bar", tag="file_menu")
         dpg.add_menu_item(label="New", callback=lambda: print("New"), parent="file_menu")
         dpg.add_menu_item(label="Open", callback=lambda: print("Open"), parent="file_menu")
@@ -106,9 +87,8 @@ class Window:
         dpg.add_menu_item(label="Exit", callback=dpg.stop_dearpygui, parent="file_menu")
 
     def build_controls(self):
-        self.controls_group = dpg.add_group(horizontal=True, parent="main_window",tag="controls_group")
-        dpg.add_text("Hello", parent="controls_group")
-        dpg.add_button(label="Run simulation", parent=self.controls_group)
+        dpg.add_group(horizontal=True, parent=self.window, tag="controls_group")
+        dpg.add_button(label="Run simulation", parent="controls_group")
         dpg.add_button(label="Stop simulation", parent="controls_group")
         dpg.add_button(label="Step forward", parent="controls_group")
         dpg.add_drag_double(label="Simulation speed", default_value=1.0, min_value=0.0, max_value=10.0,
@@ -117,23 +97,72 @@ class Window:
     def update_drawlist_size(self, sender, app_data, user_data):
         viewport_width, viewport_height = dpg.get_viewport_client_width(), dpg.get_viewport_client_height()
         dpg.set_item_width("drawlist", viewport_width)
-        dpg.set_item_height("drawlist", viewport_height)
+        dpg.set_item_height("drawlist", viewport_height - 46)
         dpg.configure_item("background_rect", pmax=(viewport_width, viewport_height))
 
+    def update_drawlist(self):
 
-window = Window()
+        for i in range(40):
+            for j in range(30):
+                dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j),
+                                   fill=(75, 75, 75), color=(75, 75, 75), thickness=0.0, parent="drawlist")
+
+        for cell in self.game.cells:
+            dpg.draw_rectangle((2 + 50 * cell[0], 2 + 50 * cell[1]), (50 + 50 * cell[0], 50 + 50 * cell[1]),
+                               fill=(255, 255, 255),
+                               color=(255, 255, 255), thickness=0.0, parent="drawlist")
+
+    def test(self, sender, app_data, user_data):
+        print(sender, app_data, user_data)
+        x,y =dpg.get_mouse_pos()
+        cell = (x//50,(y-25)//50)
+        if cell in self.game.cells:
+            self.game.cells.remove(cell)
+        else:
+            self.game.cells.append(cell)
+        self.update_drawlist()
+
+
+
+class Game:
+    def __init__(self):
+        self.cells = [
+            (0,0),
+            (1,1),
+            (2,2),
+            (3,3),
+            (4,4),
+            (5,5),
+            (6,6),
+            (7,7),
+            (8,8)
+        ]
+
+    def open(self, file_path):
+        pass
+
+    def save(self, file_path):
+        pass
+
+
+game = Game()
+app = App(game)
 
 theme = theme.theme_load()
 dpg.bind_theme(theme)
 
-dpg.set_viewport_resize_callback(window.update_drawlist_size)
+dpg.set_viewport_resize_callback(app.update_drawlist_size)
 
-dpg.set_frame_callback(0, window.update_drawlist_size)
+dpg.set_frame_callback(0, app.update_drawlist_size)
+
+dpg.handler_registry(tag="drawlist_handler")
+dpg.add_mouse_wheel_handler(parent="drawlist_handler", callback=app.test)
+
 
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.maximize_viewport()
-dpg.set_primary_window("main_window", True)
+dpg.set_primary_window(app.window, True)
 
 while dpg.is_dearpygui_running():
     dpg.render_dearpygui_frame()
