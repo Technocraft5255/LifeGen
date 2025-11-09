@@ -155,8 +155,7 @@ dpg.set_viewport_resize_callback(app.update_drawlist_size)
 
 dpg.set_frame_callback(0, app.update_drawlist_size)
 
-dpg.handler_registry(tag="drawlist_handler")
-dpg.add_mouse_wheel_handler(parent="drawlist_handler", callback=app.test)
+
 
 
 dpg.setup_dearpygui()
