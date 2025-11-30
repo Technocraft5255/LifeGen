@@ -1,106 +1,69 @@
-import dearpygui.dearpygui as dpg
-from bin import theme
+import pygame as pg
+from pygame import Vector2
 
-dpg.create_context()
-dpg.create_viewport(title='Custom Title', width=600, height=200)
+
+class Game:
+    def __init__(self):
+        pass
+
+    def open(self, file_path):
+        # Load saved life simulation file here
+        pass
+
+    def save(self, file_path):
+        # Save current simulation state in a file
+        pass
 
 
 class App:
-    def __init__(self, game):
+    def __init__(self, game: Game):
+        pg.init()
+        self.fps = 60
+        self.clock = pg.time.Clock()
+        self.is_running = True
         self.game = game
-        theme.set_font("segoeui.ttf", 16, True)
-        self.window = dpg.add_window(label="Main Window", tag="main_window")
-        self.build_controls()
-        self.build_drawlist()
-        self.build_menu()
 
-        """
-        self.window = dpg.window(label="Window", tag="Window")
-        theme.set_font("segoeui.ttf", 16, True)
+        # Window size and creation
+        self.size = Vector2(1000, 800)
+        self.screen = pg.display.set_mode(self.size, pg.RESIZABLE)
 
-        with self.window:
-            with dpg.menu_bar():
-                with dpg.menu(label="File"):
-                    dpg.add_menu_item(label="New", callback=lambda: print("New"))
-                    dpg.add_menu_item(label="Open", callback=lambda: print("Open"))
-                    dpg.add_menu_item(label="Save", callback=lambda: print("Save"))
-                    dpg.add_menu_item(label="Save As", callback=lambda: print("Save As"))
-                    dpg.add_menu_item(label="Settings", callback=dpg.stop_dearpygui)
-                    dpg.add_menu_item(label="Exit", callback=dpg.stop_dearpygui)
-                with dpg.menu(label="Edit"):
-                    dpg.add_menu_item(label="Undo", callback=lambda: print("Undo"))
-                    dpg.add_menu_item(label="Redo", callback=lambda: print("Redo"))
-                with dpg.menu(label="Help"):
-                    dpg.add_menu_item(label="About", callback=lambda: print("About"))
+        # Viewport creation
+        self.viewport = ViewPort(Vector2(0, 50), self.size - Vector2(0, 50))
 
-            with dpg.group(horizontal=True):
-                dpg.add_text("Hello")
-                dpg.add_button(label="Run simulation")
-                dpg.add_button(label="Stop simulation")
-                dpg.add_button(label="Step forward")
-                dpg.add_drag_double(label="Simulation speed", default_value=1.0, min_value=0.0, max_value=10.0,
-                                    speed=0.05, width=150)
+    def run(self):
+        """Main application loop."""
+        while self.is_running:
+            self.screen.fill((0, 0, 0))
 
-            with dpg.drawlist(tag="MainDrawlist",width=1700, height=900, callback=self.test):  # draw-list ()
-                dpg.draw_rectangle((0, 0), (), fill=(110, 110, 110), color=(110, 110, 110), thickness=0.0)
-                for i in range(40):
-                    for j in range(30):
-                        dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j),
-                                           fill=(75, 75, 75), color=(75, 75, 75), thickness=0.0)
+            # Draw viewport area and test rectangle
+            self.viewport.draw(self.screen)
+            self.viewport.draw_rect(self.screen, Vector2(2, 2), Vector2(3, 3))
 
-                i = 13
-                j = 10
-                dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j), fill=(255, 255, 255),
-                                   color=(255, 255, 255), thickness=0.0)
-                i = 14
-                j = 10
-                dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j), fill=(255, 255, 255),
-                                   color=(255, 255, 255), thickness=0.0)
-                i = 14
-                j = 9
-                dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j), fill=(255, 255, 255),
-                                   color=(255, 255, 255), thickness=0.0)
-                i = 13
-                j = 8
-                dpg.draw_rectangle((2 + 50 * i, 2 + 50 * j), (50 + 50 * i, 50 + 50 * j), fill=(255, 255, 255),
-                                   color=(255, 255, 255), thickness=0.0)
+            # Limit FPS and update screen
+            self.clock.tick(self.fps)
+            pg.display.flip()
 
-                dpg.draw_rectangle((10, 10), (50, 50), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
-                dpg.draw_rectangle((60, 10), (100, 50), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
-                dpg.draw_rectangle((10, 60), (50, 100), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
-                dpg.draw_rectangle((60, 60), (100, 100), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)"""
+            # Process incoming events
+            self.handle_events(pg.event.get())
 
-    def build_drawlist(self):
-        dpg.add_drawlist(tag="drawlist", parent=self.window, width=800, height=600, pos=(0, 0), callback=self.test)
-        dpg.draw_rectangle((0, 0), (800, 600), fill=(110, 110, 110), color=(110, 110, 110), parent="drawlist",
-                           tag="background_rect")
-        self.update_drawlist()
+    def handle_events(self, events):
+        """Handle all pygame events."""
+        for event in events:
+            if event.type == pg.QUIT:
+                pg.quit()
+                self.is_running = False
+                exit(0)
 
-    def build_menu(self):
-        dpg.add_menu_bar(parent=self.window, tag="menu_bar")
-        dpg.add_menu(label="File", parent="menu_bar", tag="file_menu")
-        dpg.add_menu_item(label="New", callback=lambda: print("New"), parent="file_menu")
-        dpg.add_menu_item(label="Open", callback=lambda: print("Open"), parent="file_menu")
-        dpg.add_menu_item(label="Save", callback=lambda: print("Save"), parent="file_menu")
-        dpg.add_menu_item(label="Save As", callback=lambda: print("Save As"), parent="file_menu")
-        dpg.add_menu_item(label="Settings", callback=dpg.stop_dearpygui, parent="file_menu")
-        dpg.add_menu_item(label="Exit", callback=dpg.stop_dearpygui, parent="file_menu")
+            if event.type == pg.MOUSEBUTTONDOWN:
+                pass
 
-    def build_controls(self):
-        dpg.add_group(horizontal=True, parent=self.window, tag="controls_group")
-        dpg.add_button(label="Run simulation", parent="controls_group")
-        dpg.add_button(label="Stop simulation", parent="controls_group")
-        dpg.add_button(label="Step forward", parent="controls_group")
-        dpg.add_drag_double(label="Simulation speed", default_value=1.0, min_value=0.0, max_value=10.0,
-                            speed=0.05, width=150, parent="controls_group")
+            if event.type == pg.KEYDOWN:
+                pass
 
-    def update_drawlist_size(self, sender, app_data, user_data):
-        viewport_width, viewport_height = dpg.get_viewport_client_width(), dpg.get_viewport_client_height()
-        dpg.set_item_width("drawlist", viewport_width)
-        dpg.set_item_height("drawlist", viewport_height - 46)
-        dpg.configure_item("background_rect", pmax=(viewport_width, viewport_height))
+            # Zoom in/out with mouse wheel
+            if event.type == pg.MOUSEWHEEL:
+                self.viewport.handle_zoom(Vector2(pg.mouse.get_pos()), event.precise_y)
 
-    def update_drawlist(self):
 
         for i in range(40):
             for j in range(30):
