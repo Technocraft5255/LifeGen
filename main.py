@@ -16,12 +16,12 @@ class Game:
 
 
 class App:
-    def __init__(self, game: Game):
+    def __init__(self, game_instance: Game):
         pg.init()
         self.fps = 60
         self.clock = pg.time.Clock()
         self.is_running = True
-        self.game = game
+        self.game = game_instance
 
         # Window size and creation
         self.size = Vector2(1000, 800)
@@ -29,6 +29,8 @@ class App:
 
         # Viewport creation
         self.viewport = ViewPort(Vector2(0, 50), self.size - Vector2(0, 50))
+
+        self.last_mouse_pos = Vector2(pg.mouse.get_pos())
 
     def run(self):
         """Main application loop."""
@@ -55,14 +57,23 @@ class App:
                 exit(0)
 
             if event.type == pg.MOUSEBUTTONDOWN:
-                pass
+                self.viewport.dragging = True
+                self.last_mouse_pos = Vector2(pg.mouse.get_pos())
 
-            if event.type == pg.KEYDOWN:
-                pass
+            if event.type == pg.MOUSEBUTTONUP:
+                self.viewport.dragging = False
+
+            if event.type == pg.MOUSEMOTION:
+                if self.viewport.dragging:
+                    self.viewport.handle_drag(Vector2(pg.mouse.get_pos()), self.last_mouse_pos)
+                    self.last_mouse_pos = Vector2(pg.mouse.get_pos())
 
             # Zoom in/out with mouse wheel
             if event.type == pg.MOUSEWHEEL:
                 self.viewport.handle_zoom(Vector2(pg.mouse.get_pos()), event.precise_y)
+
+            if event.type == pg.KEYDOWN:
+                pass
 
 
 class ViewPort:
@@ -74,6 +85,8 @@ class ViewPort:
         # Actual pixel position and size on screen
         self.viewport_pos = pos or Vector2(0, 0)
         self.viewport_size = size or Vector2(1000, 800)
+
+        self.dragging = False
 
     def viewport_to_screen(self, pos: Vector2):
         """
@@ -132,9 +145,13 @@ class ViewPort:
         # Cleanup temporary objects
         del to_start_pos_vector, to_end_pos_vector, viewport_mouse_pos
 
-    def handle_drag(self):
+    def handle_drag(self, mouse_pos: Vector2, last_mouse_pos: Vector2):
         """Drag-to-pan (not implemented yet)."""
-        pass
+        world_mouse_pos = self.screen_to_viewport(mouse_pos)
+        world_last_mouse_pos = self.screen_to_viewport(last_mouse_pos)
+
+        self.start_pos += world_last_mouse_pos - world_mouse_pos
+        self.end_pos += world_last_mouse_pos - world_mouse_pos
 
     def draw_rect(self, screen, pos1, pos2):
         """Draw a red rectangle using world coordinates."""
