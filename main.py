@@ -1,69 +1,166 @@
-import dearpygui.dearpygui as dpg
-from bin import theme
-
-dpg.create_context()
-dpg.create_viewport(title='Custom Title', width=600, height=200)
+import pygame as pg
+from pygame import Vector2
 
 
-class Window:
+class Game:
     def __init__(self):
-        self.window = dpg.window(label="Window", tag="Window")
-        theme.set_font("segoeui.ttf", 16, True)
+        pass
 
-        with self.window:
-            with dpg.menu_bar():
-                with dpg.menu(label="File"):
-                    dpg.add_menu_item(label="New", callback=lambda: print("New"))
-                    dpg.add_menu_item(label="Open", callback=lambda: print("Open"))
-                    dpg.add_menu_item(label="Save", callback=lambda: print("Save"))
-                    dpg.add_menu_item(label="Save As", callback=lambda: print("Save As"))
-                    dpg.add_menu_item(label="Settings", callback=dpg.stop_dearpygui)
-                    dpg.add_menu_item(label="Exit", callback=dpg.stop_dearpygui)
-                with dpg.menu(label="Edit"):
-                    dpg.add_menu_item(label="Undo", callback=lambda: print("Undo"))
-                    dpg.add_menu_item(label="Redo", callback=lambda: print("Redo"))
-                with dpg.menu(label="Help"):
-                    dpg.add_menu_item(label="About", callback=lambda: print("About"))
+    def open(self, file_path):
+        # Load saved life simulation file here
+        pass
 
-            with dpg.group(horizontal=True):
-                dpg.add_text("Hello")
-                dpg.add_button(label="Run simulation")
-                dpg.add_button(label="Stop simulation")
-                dpg.add_button(label="Step forward")
-                dpg.add_drag_double(label="Simulation speed", default_value=1.0, min_value=0.0, max_value=10.0,
-                                    speed=0.05, width=150)
-
-            width = dpg.get_item_width("Window")
-            print(f"Window width: {width}, height:")
-            with dpg.drawlist(width=1500, height=900, callback=self.test):  #  drawlist ()
-                dpg.draw_rectangle((0, 0), (1500, 900), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
-                for i in range(20):
-                    for j in range(10):
-                        dpg.draw_rectangle((3 + 50 * i, 3 + 50 * j), (50 + 50 * i, 50 + 50 * j),
-                                           fill=(0, 0, 255), color=(0, 0, 255), thickness=0.0)
-
-                """dpg.draw_rectangle((10, 10), (50, 50), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
-                dpg.draw_rectangle((60, 10), (100, 50), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
-                dpg.draw_rectangle((10, 60), (50, 100), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)
-                dpg.draw_rectangle((60, 60), (100, 100), fill=(255, 0, 0), color=(255, 0, 0), thickness=0.0)"""
-
-    def test(self, sender, app_data, user_data):
-        print(sender, app_data, user_data)
-        print(dpg.get_mouse_pos())
+    def save(self, file_path):
+        # Save current simulation state in a file
+        pass
 
 
-window = Window()
+class App:
+    def __init__(self, game_instance: Game):
+        pg.init()
+        self.fps = 60
+        self.clock = pg.time.Clock()
+        self.is_running = True
+        self.game = game_instance
 
-theme = theme.theme_load()
-dpg.bind_theme(theme)
+        # Window size and creation
+        self.size = Vector2(1000, 800)
+        self.screen = pg.display.set_mode(self.size, pg.RESIZABLE)
 
-dpg.setup_dearpygui()
-dpg.show_viewport()
-dpg.maximize_viewport()
-dpg.set_primary_window("Window", True)
+        # Viewport creation
+        self.viewport = ViewPort(Vector2(0, 50), self.size - Vector2(0, 50))
 
-while dpg.is_dearpygui_running():
-    dpg.render_dearpygui_frame()
-    # window.update()
+        self.last_mouse_pos = Vector2(pg.mouse.get_pos())
 
-dpg.destroy_context()
+    def run(self):
+        """Main application loop."""
+        while self.is_running:
+            self.screen.fill((0, 0, 0))
+
+            # Draw viewport area and test rectangle
+            self.viewport.draw(self.screen)
+            self.viewport.draw_rect(self.screen, Vector2(2, 2), Vector2(3, 3))
+
+            # Limit FPS and update screen
+            self.clock.tick(self.fps)
+            pg.display.flip()
+
+            # Process incoming events
+            self.handle_events(pg.event.get())
+
+    def handle_events(self, events):
+        """Handle all pygame events."""
+        for event in events:
+            if event.type == pg.QUIT:
+                pg.quit()
+                self.is_running = False
+                exit(0)
+
+            if event.type == pg.MOUSEBUTTONDOWN:
+                self.viewport.dragging = True
+                self.last_mouse_pos = Vector2(pg.mouse.get_pos())
+
+            if event.type == pg.MOUSEBUTTONUP:
+                self.viewport.dragging = False
+
+            if event.type == pg.MOUSEMOTION:
+                if self.viewport.dragging:
+                    self.viewport.handle_drag(Vector2(pg.mouse.get_pos()), self.last_mouse_pos)
+                    self.last_mouse_pos = Vector2(pg.mouse.get_pos())
+
+            # Zoom in/out with mouse wheel
+            if event.type == pg.MOUSEWHEEL:
+                self.viewport.handle_zoom(Vector2(pg.mouse.get_pos()), event.precise_y)
+
+            if event.type == pg.KEYDOWN:
+                pass
+
+
+class ViewPort:
+    def __init__(self, pos, size):
+        # Coordinate space visible inside viewport (world coordinates)
+        self.start_pos = Vector2(-16, -36 / 3)
+        self.end_pos = Vector2(16, 36 / 3)
+
+        # Actual pixel position and size on screen
+        self.viewport_pos = pos or Vector2(0, 0)
+        self.viewport_size = size or Vector2(1000, 800)
+
+        self.dragging = False
+
+    def viewport_to_screen(self, pos: Vector2):
+        """
+        Convert a coordinate in world-space to a pixel coordinate on screen.
+        Performs linear interpolation from world-space to screen-space.
+        """
+        return Vector2(
+            (pos.x - self.start_pos.x) /
+            (self.end_pos.x - self.start_pos.x) * self.viewport_size.x + self.viewport_pos.x,
+            (pos.y - self.start_pos.y) /
+            (self.end_pos.y - self.start_pos.y) * self.viewport_size.y + self.viewport_pos.y
+        )
+
+    def screen_to_viewport(self, pos: Vector2):
+        """
+        Convert a pixel coordinate on screen to world-space coordinates.
+        """
+        relative_pos = Vector2(
+            (pos.x - self.viewport_pos.x) / self.viewport_size.x,
+            (pos.y - self.viewport_pos.y) / self.viewport_size.y
+        )
+
+        return Vector2(
+            (self.end_pos.x - self.start_pos.x) * relative_pos.x + self.start_pos.x,
+            (self.end_pos.y - self.start_pos.y) * relative_pos.y + self.start_pos.y,
+        )
+
+    def draw(self, screen):
+        """Draw the viewport boundary (simple white rectangle)."""
+        pg.draw.rect(screen, (255, 255, 255), (self.viewport_pos, self.viewport_size))
+
+    def handle_zoom(self, mouse_pos: Vector2, zoom_value: int | float):
+        """
+        Zoom in/out around the mouse cursor.
+        Positive = zoom in, Negative = zoom out.
+        Zooming scales the world-space rectangle (start_pos → end_pos)
+        relative to cursor position to give intuitive zoom behavior.
+        """
+        # Adjust zoom speed differently depending on direction
+        if zoom_value >= 0:
+            zoom_value *= 0.5
+        else:
+            zoom_value *= 1 / 3
+
+        # Convert mouse into world coordinates
+        viewport_mouse_pos = self.screen_to_viewport(mouse_pos)
+
+        # Vectors from mouse to viewport boundaries
+        to_start_pos_vector = self.start_pos - viewport_mouse_pos
+        to_end_pos_vector = self.end_pos - viewport_mouse_pos
+
+        # Apply zoom by scaling these vectors
+        self.start_pos += to_start_pos_vector * zoom_value
+        self.end_pos += to_end_pos_vector * zoom_value
+
+        # Cleanup temporary objects
+        del to_start_pos_vector, to_end_pos_vector, viewport_mouse_pos
+
+    def handle_drag(self, mouse_pos: Vector2, last_mouse_pos: Vector2):
+        """Drag-to-pan (not implemented yet)."""
+        world_mouse_pos = self.screen_to_viewport(mouse_pos)
+        world_last_mouse_pos = self.screen_to_viewport(last_mouse_pos)
+
+        self.start_pos += world_last_mouse_pos - world_mouse_pos
+        self.end_pos += world_last_mouse_pos - world_mouse_pos
+
+    def draw_rect(self, screen, pos1, pos2):
+        """Draw a red rectangle using world coordinates."""
+        screen_pos1 = self.viewport_to_screen(pos1)
+        screen_pos2 = self.viewport_to_screen(pos2)
+        pg.draw.rect(screen, (255, 0, 0),
+                     (screen_pos1, screen_pos2 - screen_pos1))
+
+
+game = Game()
+app = App(game)
+app.run()
