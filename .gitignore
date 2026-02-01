@@ -1,9 +1,4 @@
-.idea/LifeGen.iml
-.idea/inspectionProfiles/Project_Default.xml
-.idea/inspectionProfiles/profiles_settings.xml
-.idea/workspace.xml
-.idea/vcs.xml
-.idea/modules.xml
-.idea/misc.xml
+.idea/
 __pycache__/
 .vscode/
+

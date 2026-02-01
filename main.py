@@ -9,8 +9,15 @@ class Game:
     def __init__(self):
         # Chunk map stocks : {chunk_pos tuple (x_chunk, y_chunk): chunk (list of Vector2)}
         self.chunk_map = {}
+        self.computed_chunk_map = {}
 
     def open(self, file_path):
+        """
+        Docstring for open
+        
+        :param self: Description
+        :param file_path: Description
+        """
         # Load saved life simulation file here
         pass
 
@@ -29,9 +36,34 @@ class Game:
             
         # Save life simulation file here
         with open(file_path, 'wb') as f:
-            pass
+            f.write(b'LG10')  # File signature (Life Gen v1.0)
+            for chunk_pos, cells in self.chunk_map.items():
+                for cell in cells:
+                    f.write(int(cell.x).to_bytes(4, 'little', signed=True))
+                    f.write(int(cell.y).to_bytes(4, 'little', signed=True))
+    
+    def update_chunk_map(self):
+        """
+        Update the chunk map
+        """
+        self.chunk_map = self.computed_chunk_map
+        self.computed_chunk_map = {}
 
-    def add_cell(self, cell: Vector2):
+    def toggle_cell(self, cell: Vector2):
+        """
+        Toggle a cell in the simulation
+        
+        :param self: Description
+        :param cell: Description
+        :type cell: Vector2
+        """
+        cell_chunk_pos = self.get_chunk(cell)
+        if cell in self.chunk_map[cell_chunk_pos]:
+            self.chunk_map[cell_chunk_pos].remove(cell)
+        else:
+            self.chunk_map[cell_chunk_pos].append(cell)
+
+    def add_cell(self, cell: Vector2, computed=False):
         """
         Add a cell to the simulation
         
@@ -40,7 +72,12 @@ class Game:
         :type cell: Vector2
         """
         cell_chunk_pos = self.get_chunk(cell)
-        self.chunk_map[cell_chunk_pos].append(cell)
+        if computed:
+            if cell_chunk_pos not in self.computed_chunk_map:
+                self.computed_chunk_map[cell_chunk_pos] = []
+            self.computed_chunk_map[cell_chunk_pos].append(cell)
+        else:
+            self.chunk_map[cell_chunk_pos].append(cell)
 
     def get_chunk(self, cell: Vector2) -> tuple:
         """
@@ -52,11 +89,65 @@ class Game:
         if chunk_pos not in self.chunk_map:
             self.chunk_map[chunk_pos] = []
         return chunk_pos
+    
+    def get_cell_state(self, cell: Vector2) -> bool:
+        """
+        Return whether a cell is alive or dead
+        
+        :param self: Description
+        :param cell: Description
+        :type cell: Vector2
+        :return: True if cell is alive, False otherwise
+        :rtype: bool
+        """
+        cell_chunk_pos = self.get_chunk(cell)
+        return cell in self.chunk_map[cell_chunk_pos]
+    
+    def get_cell_neighbors(self, cell_x: int, cell_y: int) -> list[Vector2]:
+        """
+        Get the neighbors of a cell
+        
+        :param self: Description
+        :param cell_x: Description
+        :param cell_y: Description
+        :return: List of neighbor cells
+        :rtype: list
+        """
+        neighbors = []
+        
+        # Check if any cell neighbors are in another chunk
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue  # Skip the cell itself
+                if self.get_cell_state(Vector2(cell_x + dx, cell_y + dy)):
+                    neighbors.append(Vector2(cell_x + dx, cell_y + dy))
+        return neighbors
 
+    def compute_next_generation(self):
+        """
+        Compute the next generation of the simulation
+        """
+        # Implement the rules of the life simulation here
+        chunks_to_compute = set()
+        for chunk_pos, cells in self.chunk_map.items():
+            # Add neighboring chunks to compute list
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    if (chunk_pos[0] + dx, chunk_pos[1] + dy) not in chunks_to_compute:
+                        chunks_to_compute.add((chunk_pos[0] + dx, chunk_pos[1] + dy))
+        for chunk_pos in chunks_to_compute:
+            for x in range(16):
+                for y in range(16):
+                    neighbors_number = len(self.get_cell_neighbors(chunk_pos[0]*16+x, chunk_pos[1]*16+y))
+                    if neighbors_number  in [2, 3] and self.get_cell_state(Vector2(chunk_pos[0]*16+x, chunk_pos[1]*16+y)):
+                        self.add_cell(Vector2(chunk_pos[0]*16+x, chunk_pos[1]*16+y), computed=True)
+                    elif neighbors_number == 3:
+                        self.add_cell(Vector2(chunk_pos[0]*16+x, chunk_pos[1]*16+y), computed=True)
+                    
 
 class App:
     def __init__(self, game_instance: Game, window_title="LifeGen", fps=60):
-        self.temp = []
         pg.init()
         self.fps = fps
         self.clock = pg.time.Clock()
@@ -82,8 +173,11 @@ class App:
             self.viewport.draw((50, 50, 50))
             self.viewport.draw_grid()
             
-            for cell in self.temp:
-                self.viewport.draw_rect((255, 255, 255), cell, cell+Vector2(1, 1))
+            
+            # Draw all cells  TODO: Optimize drawing by only drawing visible chunks
+            for chunk_pos, cells in self.game.chunk_map.items():
+                for cell in cells:
+                    self.viewport.draw_rect((255, 255, 255), cell, cell+Vector2(1, 1))
 
             # Limit FPS and update screen
             self.clock.tick(self.fps)
@@ -96,7 +190,6 @@ class App:
         """Handle all pygame events."""
         for event in events:
             if event.type == pg.QUIT:
-                print(self.game.chunk_map)
                 pg.quit()
                 self.is_running = False
                 exit(0)
@@ -109,12 +202,10 @@ class App:
             if event.type == pg.MOUSEBUTTONUP:
                 self.viewport.dragging = False
                 if self.drag_delta < 2 and event.button == 1:
-                    val = self.viewport.screen_to_viewport(Vector2(pg.mouse.get_pos()))
-                    val.x = floor(val.x)
-                    val.y = floor(val.y)
-                    self.temp.append(val)
-                    self.game.add_cell(val)
-                    print("val", val)
+                    cell_pos = self.viewport.screen_to_viewport(Vector2(pg.mouse.get_pos()))
+                    cell_pos.x = floor(cell_pos.x)
+                    cell_pos.y = floor(cell_pos.y)
+                    self.game.toggle_cell(cell_pos)
 
             if event.type == pg.MOUSEMOTION:
                 if self.viewport.dragging:
@@ -127,7 +218,16 @@ class App:
                 self.viewport.handle_zoom(Vector2(pg.mouse.get_pos()), event.precise_y)
 
             if event.type == pg.KEYDOWN:
-                pass
+                if event.key == pg.K_SPACE:
+                    self.game.compute_next_generation() # Advance simulation by one generation
+                    self.game.update_chunk_map()
+                if event.key == pg.K_s and pg.key.get_mods() & pg.KMOD_CTRL:
+                    # Save file dialog
+                    file_path = filedialog.asksaveasfilename(defaultextension=".life",
+                                                             filetypes=[("LifeGen files", "*.life"),
+                                                                        ("All files", "*.*")])
+                    if file_path:
+                        self.game.save(file_path)
 
 
 class ViewPort:
