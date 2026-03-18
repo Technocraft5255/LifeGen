@@ -11,7 +11,7 @@ class Game:
         self.chunk_map = {}
         self.computed_chunk_map = {}
 
-    def open(self, file_path):
+    def open(self):
         """
         Docstring for open
         
@@ -21,13 +21,20 @@ class Game:
         # Load saved life simulation file here
         pass
 
-    def save(self, file_path):
+    def save(self, save_as=False):
         """
-        Save current simulation state in a file
+        Save current simulation state in a file after asking for overwrite if file exists
         
         :param self: Description
         :param file_path: Description
         """
+
+        file_path = filedialog.asksaveasfilename(defaultextension=".life",
+                                                             filetypes=[("LifeGen files", "*.life"),
+                                                                        ("All files", "*.*")])
+        if not file_path:
+            return  # No file path selected
+            
         # Check if file does not already exist
         
         if os.path.exists(file_path):
@@ -48,6 +55,13 @@ class Game:
         """
         self.chunk_map = self.computed_chunk_map
         self.computed_chunk_map = {}
+    
+    def clear(self):
+        """
+        Clear the simulation
+        """
+        self.computed_chunk_map = {}
+        self.update_chunk_map()
 
     def toggle_cell(self, cell: Vector2):
         """
@@ -144,7 +158,215 @@ class Game:
                         self.add_cell(Vector2(chunk_pos[0]*16+x, chunk_pos[1]*16+y), computed=True)
                     elif neighbors_number == 3:
                         self.add_cell(Vector2(chunk_pos[0]*16+x, chunk_pos[1]*16+y), computed=True)
-                    
+
+
+class MenuBar:
+    def __init__(self, screen: pg.Surface, size):
+        self.screen = screen
+        self.size = Vector2(size)
+        self.font = pg.font.Font("C:/Windows/Fonts/segoeui.ttf", 12)
+        self.menus = list[Menu]()
+        self.active = False
+        self.active_menu = None
+        self.hovered_menu = None
+
+    def draw(self):
+        """
+        Draw the menu bar and its menus
+        
+        :param self: Description
+        """
+        pg.draw.rect(self.screen, "#EEEEEE", (0, 0, self.size.x, 24))
+
+        offset = 5
+        for menu in self.menus:
+            menu_text = menu.get_text()
+            if self.hovered_menu == menu:
+                pg.draw.rect(self.screen, "#C8C8C8",
+                             (menu_text.get_offset() + Vector2(offset - 5, 0), menu_text.get_size() + Vector2(8, 7)))
+            self.screen.blit(menu_text, (offset, 3))
+            if self.active_menu == menu and self.active:
+                menu.draw(self.screen, Vector2(offset - 5, 24))
+            offset += menu.get_rect().width + 8
+        del offset
+
+    def add_menu(self, menu):
+        """
+        Add a menu to the menu bar
+        
+        :param self: Description
+        :param menu: Description
+        """
+        self.menus.append(menu)
+
+    def get_collision_box(self):
+        return pg.Rect(0, 0, self.screen.get_width(), 24)
+
+    def handle_events(self, event: pg.event.Event, keyboard: pg.key, mouse: pg.mouse):
+        """
+        Handle events for the menu bar like clicksn, hovers and events on sub-menus
+        
+        :param self: Description
+        :param event: Description
+        :type event: pg.event.Event
+        :param keyboard: Description
+        :type keyboard: pg.key
+        :param mouse: Description
+        :type mouse: pg.mouse
+        """
+        if event.type == pg.MOUSEBUTTONDOWN:
+            # check press on menubar
+            if self.get_collision_box().collidepoint(mouse.get_pos()):
+                offset = 5
+                for menu in self.menus:
+                    rect = menu.get_rect()
+                    rect.x += offset
+                    if rect.collidepoint(mouse.get_pos()):
+                        if not self.active:
+                            self.active = True
+                            self.active_menu = menu
+                        else:
+                            self.active = False
+                    offset += rect.width + 8
+                del offset
+            # check press on the active menu
+            elif self.active:
+                if self.active_menu.get_menu_rect().collidepoint(mouse.get_pos()):
+                    self.active_menu.handle_event("press", mouse)
+                else:
+                    self.active = False
+                    self.hovered_menu = None
+            else:
+                self.active = False
+                self.hovered_menu = None
+        if event.type == pg.MOUSEMOTION:
+            offset = 5
+            self.hovered_menu = None
+            for menu in self.menus:
+                rect = menu.get_rect()
+                rect.x += offset
+                if rect.collidepoint(mouse.get_pos()):
+                    if self.active:
+                        self.active_menu = menu
+                    self.hovered_menu = menu
+                offset += rect.width + 8
+            del offset
+            if self.active:
+                self.hovered_menu = self.active_menu
+                self.active_menu.handle_event("active", mouse)
+
+    def resize(self, size):
+        """
+        Handle the menu bar resizing on window resize
+        
+        :param self: Description
+        :param size: Description
+        """
+        self.size = size
+
+
+class Menu:
+    def __init__(self, name, theme):
+        self.name = name
+        self.theme = theme
+        self.font = pg.font.Font("C:/Windows/Fonts/segoeui.ttf", 12)
+        self.text = self.font.render(self.name, 1, "#000000")
+        self.commands = {}
+        self.menu_rect = pg.Rect(0, 0, 0, 0)
+        self.pos = Vector2(0, 0)
+        self.width = 0
+
+    def get_rect(self):
+        """
+        Get the collision box rectangle of the menu text
+        
+        :param self: Description
+        """
+        return self.text.get_rect()
+
+    def get_menu_rect(self):
+        """
+        Get the collision box rectangle of the menu dropdown
+        
+        :param self: Description
+        """
+        return self.menu_rect
+
+    def get_text(self):
+        """
+        Get the rendered text surface of the menu
+        
+        :param self: Description
+        """
+        return self.text
+
+    def add_command(self, name: str, command: object):
+        """
+        Add a command to the menu
+        
+        :param self: Description
+        :param name: Description
+        :type name: str
+        :param command: Description
+        :type command: object
+        """
+        self.commands[name] = {"command": command,
+                               "rendered_text": self.font.render(name, 1, "#000000"),
+                               "active": False}
+
+    def draw(self, screen, pos: Vector2):
+        """
+        Draw the menu dropdown on click at given position
+        
+        :param self: Description
+        :param screen: Description
+        :param pos: Description
+        :type pos: Vector2
+        """
+        self.pos = pos
+        self.menu_rect = pg.Rect(0, 0, 0, 0)
+        texts = list[pg.Surface]()
+        self.width = 0
+        height_sum = 1
+        for name, data in self.commands.items():
+            text = data["rendered_text"]
+            texts.append(text)
+            self.width = max(self.width, text.get_rect().width)
+            height_sum += text.get_rect().height + 2
+            del text
+        self.menu_rect = pg.Rect((self.pos, (self.width + 20, height_sum)))
+        pg.draw.rect(screen, "#EEEEEE", self.menu_rect)
+
+        offset = Vector2(5, 1)
+        for name, data in self.commands.items():
+            text_rect = data["rendered_text"].get_rect()
+            if data["active"]:
+                pg.draw.rect(screen, "#C8C8C8", (
+                    text_rect.x + offset.x + pos.x - 5,
+                    text_rect.y + offset.y + pos.y - 1,
+                    self.width + 20,
+                    text_rect.h + 3))
+            screen.blit(data["rendered_text"], self.pos + offset)
+            offset.y += data["rendered_text"].get_rect().height + 2
+        del offset, text_rect, height_sum
+
+    def handle_event(self, event, mouse):
+        offset = Vector2(5, 1)
+        for name, data in self.commands.items():
+            text_rect = data["rendered_text"].get_rect()
+            if pg.Rect(
+                    (text_rect.x + offset.x + self.pos.x - 5, text_rect.y + offset.y + self.pos.y - 1, self.width + 20,
+                     text_rect.h + 2)).collidepoint(mouse.get_pos()):
+                if event == "press":
+                    data["command"]()
+                elif event == "active":
+                    data["active"] = True
+            else:
+                data["active"] = False
+
+            offset.y += text_rect.height + 2
+        del offset
+
 
 class App:
     def __init__(self, game_instance: Game, window_title="LifeGen", fps=60):
@@ -154,6 +376,11 @@ class App:
         self.is_running = True
         self.game = game_instance
 
+        """for i in range(-50, 50):
+            for j in range(-50, 50):
+                if random.random() < 0.5:
+                    self.game.add_cell(Vector2(i, j))"""
+
         self.last_mouse_pos = Vector2(pg.mouse.get_pos())
         self.drag_delta = 0  # To detect if a click is a drag or a simple click
 
@@ -161,8 +388,42 @@ class App:
         self.size = Vector2(1000, 800)
         self.screen = pg.display.set_mode(self.size, pg.RESIZABLE)
 
+        # Set window title
+        pg.display.set_caption(window_title)
+
         # Viewport creation
         self.viewport = ViewPort(pos = Vector2(0, 50), size = self.size - Vector2(0, 50), screen = self.screen)
+
+        # Menu bar creation
+        self.menubar = MenuBar(self.screen, Vector2(self.size.x, 24))
+        file_menu = Menu("File", theme={})
+        file_menu.add_command("New", lambda: print("New file"))
+        file_menu.add_command("Save", self.game.save)
+        file_menu.add_command("Save As", lambda :self.game.save(save_as=True))
+        file_menu.add_command("Open", self.game.open)
+        file_menu.add_command("Examples", lambda: print("Open examples"))
+        file_menu.add_command("Preferences", lambda: print("Open settings"))
+        file_menu.add_command("Exit", lambda: (pg.quit(), exit(0)))
+        self.menubar.add_menu(file_menu)
+        edit_menu = Menu("Edit", theme={})
+        edit_menu.add_command("Undo", lambda: print("Undo action"))
+        edit_menu.add_command("Redo", lambda: print("Redo action"))
+        edit_menu.add_command("Clear world", lambda: self.game.clear())
+        edit_menu.add_command("Randomize chunk", lambda: print("Randomize chunk"))
+        self.menubar.add_menu(edit_menu)
+        sim_menu = Menu("Simulation", theme={})
+        sim_menu.add_command("Next Generation", lambda: (self.game.compute_next_generation(), self.game.update_chunk_map()))
+        sim_menu.add_command("Start simulation", lambda: print("Start simulation"))
+        sim_menu.add_command("Pause simulation", lambda: print("Pause simulation"))
+        self.menubar.add_menu(sim_menu)
+        about_menu = Menu("About", theme={})
+        about_menu.add_command("About LifeGen", lambda: messagebox.showinfo("About LifeGen", "LifeGen v1.0\nA simple life simulation application."))
+        about_menu.add_command("Help", lambda: messagebox.showinfo("Help", "Use mouse to pan and zoom.\nClick to toggle cells.\nSpace to advance one generation.\nCtrl+S to save."))
+        about_menu.add_command("Check for updates", lambda: print("Check for updates"))
+        about_menu.add_command("Report a bug", lambda: print("Report a bug"))
+        self.menubar.add_menu(about_menu)
+        
+
 
     def run(self):
         """Main application loop."""
@@ -170,14 +431,18 @@ class App:
             self.screen.fill((0, 0, 0))
 
             # Draw viewport area and rectangles
-            self.viewport.draw((50, 50, 50))
-            self.viewport.draw_grid()
+            self.viewport.draw((0, 0, 0))
+            
             
             
             # Draw all cells  TODO: Optimize drawing by only drawing visible chunks
             for chunk_pos, cells in self.game.chunk_map.items():
                 for cell in cells:
-                    self.viewport.draw_rect((255, 255, 255), cell, cell+Vector2(1, 1))
+                    self.viewport.draw_rect((255, 255, 255), cell, cell+Vector2(1.005, 1.005))
+
+            # Draw menu bar
+            self.menubar.draw()
+
 
             # Limit FPS and update screen
             self.clock.tick(self.fps)
@@ -199,7 +464,7 @@ class App:
                 self.last_mouse_pos = Vector2(pg.mouse.get_pos())
                 self.drag_delta = 0
 
-            if event.type == pg.MOUSEBUTTONUP:
+            elif event.type == pg.MOUSEBUTTONUP:
                 self.viewport.dragging = False
                 if self.drag_delta < 2 and event.button == 1:
                     cell_pos = self.viewport.screen_to_viewport(Vector2(pg.mouse.get_pos()))
@@ -207,27 +472,26 @@ class App:
                     cell_pos.y = floor(cell_pos.y)
                     self.game.toggle_cell(cell_pos)
 
-            if event.type == pg.MOUSEMOTION:
+            elif event.type == pg.MOUSEMOTION:
                 if self.viewport.dragging:
                     self.viewport.handle_drag(Vector2(pg.mouse.get_pos()), self.last_mouse_pos)
                     self.drag_delta += (self.last_mouse_pos - Vector2(pg.mouse.get_pos())).length()
                     self.last_mouse_pos = Vector2(pg.mouse.get_pos())
 
             # Zoom in/out with mouse wheel
-            if event.type == pg.MOUSEWHEEL:
+            elif event.type == pg.MOUSEWHEEL:
                 self.viewport.handle_zoom(Vector2(pg.mouse.get_pos()), event.precise_y)
 
-            if event.type == pg.KEYDOWN:
+            elif event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE:
                     self.game.compute_next_generation() # Advance simulation by one generation
                     self.game.update_chunk_map()
                 if event.key == pg.K_s and pg.key.get_mods() & pg.KMOD_CTRL:
                     # Save file dialog
-                    file_path = filedialog.asksaveasfilename(defaultextension=".life",
-                                                             filetypes=[("LifeGen files", "*.life"),
-                                                                        ("All files", "*.*")])
-                    if file_path:
-                        self.game.save(file_path)
+                    self.game.save()
+
+            if event.type == pg.MOUSEBUTTONDOWN or self.menubar.active or self.menubar.get_collision_box().collidepoint(pg.mouse.get_pos()):
+                self.menubar.handle_events(event, pg.key, pg.mouse)
 
 
 class ViewPort:
@@ -282,14 +546,27 @@ class ViewPort:
         :param background_color: Background color of the viewport
         """
         pg.draw.rect(self.screen, background_color, (self.viewport_pos, self.viewport_size))
+        self.draw_grid()
     
     def draw_grid(self):
-        for row in range(int(self.start_pos.x)-5, int(self.end_pos.x)+5, 1):
+        """for row in range(int(self.start_pos.x)-5, int(self.end_pos.x)+5, 1):
                 for col in range(int(self.start_pos.y)-5, int(self.end_pos.y)+5, 1):
                     self.draw_rect( 
                         (0, 0, 0), 
                         Vector2(row + 0.05, col + 0.05),
                         Vector2(row + 1, col + 1))
+        """
+        for row in range(int(self.start_pos.x)-5, int(self.end_pos.x)+5, 1):
+            if self.viewport_size.x / (self.end_pos.x - self.start_pos.x) > 10:  # Only draw grid if zoomed in enough
+                pg.draw.rect(self.screen, (50, 50, 50), (self.viewport_to_screen(Vector2(row + -0.025, self.start_pos.y)), (self.viewport_to_screen(Vector2(row + 0.025, self.end_pos.y))) - self.viewport_to_screen(Vector2(row + -0.025, self.start_pos.y))), 0)
+        
+        for col in range(int(self.start_pos.y)-5, int(self.end_pos.y)+5, 1):
+            """self.draw_rect( 
+                (50, 50, 50), 
+                Vector2(self.start_pos.x, col + -0.025),
+                Vector2(self.end_pos.x, col + 0.025))"""
+            pg.draw.rect(self.screen, (50, 50, 50), (self.viewport_to_screen(Vector2(self.start_pos.x, col + -0.025)), (self.viewport_to_screen(Vector2(self.end_pos.x, col + 0.025))) - self.viewport_to_screen(Vector2(self.start_pos.x, col + -0.025))), 0)
+
 
     def handle_zoom(self, mouse_pos: Vector2, zoom_value: int | float):
         """
@@ -336,6 +613,8 @@ class ViewPort:
         """Draw a red rectangle using world coordinates."""
         screen_pos1 = self.viewport_to_screen(pos1)
         screen_pos2 = self.viewport_to_screen(pos2)
+        screen_pos1.x, screen_pos1.y = floor(screen_pos1.x), floor(screen_pos1.y)
+        screen_pos2.x, screen_pos2.y = floor(screen_pos2.x), floor(screen_pos2.y)
         pg.draw.rect(self.screen, color,
                      (screen_pos1, screen_pos2 - screen_pos1))
 
