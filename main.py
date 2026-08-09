@@ -10,6 +10,7 @@ class Game:
         # Chunk map stocks : {chunk_pos tuple (x_chunk, y_chunk): chunk (list of Vector2)}
         self.chunk_map = {}
         self.computed_chunk_map = {}
+        self.save_file_path = ""
 
     def open(self):
         """
@@ -18,7 +19,26 @@ class Game:
         :param self: Description
         :param file_path: Description
         """
-        # Load saved life simulation file here
+        file_path = filedialog.askopenfilename(filetypes=[("LifeGen files", "*.life"), ("All files", "*.*")])
+        if not file_path:
+            return  # No file path selected
+        
+        self.save_file_path = file_path
+        
+        # Load life simulation file here
+        with open(file_path, 'rb') as f:
+                signature = f.read(4)
+                if signature != b'LG10':
+                    messagebox.showerror("Invalid file", "The selected file is not a valid LifeGen file.")
+                    return
+                self.chunk_map = {}
+                while True:
+                    cell_data = f.read(8)
+                    if not cell_data:
+                        break  # End of file
+                    cell_x = int.from_bytes(cell_data[:4], 'little', signed=True)
+                    cell_y = int.from_bytes(cell_data[4:], 'little', signed=True)
+                    self.add_cell(Vector2(cell_x, cell_y))
         pass
 
     def save(self, save_as=False):
@@ -28,18 +48,19 @@ class Game:
         :param self: Description
         :param file_path: Description
         """
-
-        file_path = filedialog.asksaveasfilename(defaultextension=".life",
+        if not save_as and self.save_file_path != "":
+            file_path = self.save_file_path
+        else:
+            file_path = filedialog.asksaveasfilename(defaultextension=".life",
                                                              filetypes=[("LifeGen files", "*.life"),
                                                                         ("All files", "*.*")])
-        if not file_path:
-            return  # No file path selected
+            if not file_path:
+               return  # No file path selected
             
-        # Check if file does not already exist
-        
-        if os.path.exists(file_path):
-            if not messagebox.askyesno("Overwrite file?", "The file already exists. Do you want to overwrite it?"):
-                return  # Do not overwrite
+            # Check if file does not already exist
+            if os.path.exists(file_path):
+                if not messagebox.askyesno("Overwrite file?", "The file already exists. Do you want to overwrite it?"):
+                  return  # Do not overwrite
             
         # Save life simulation file here
         with open(file_path, 'wb') as f:
@@ -368,132 +389,6 @@ class Menu:
         del offset
 
 
-class App:
-    def __init__(self, game_instance: Game, window_title="LifeGen", fps=60):
-        pg.init()
-        self.fps = fps
-        self.clock = pg.time.Clock()
-        self.is_running = True
-        self.game = game_instance
-
-        """for i in range(-50, 50):
-            for j in range(-50, 50):
-                if random.random() < 0.5:
-                    self.game.add_cell(Vector2(i, j))"""
-
-        self.last_mouse_pos = Vector2(pg.mouse.get_pos())
-        self.drag_delta = 0  # To detect if a click is a drag or a simple click
-
-        # Window size and creation
-        self.size = Vector2(1000, 800)
-        self.screen = pg.display.set_mode(self.size, pg.RESIZABLE)
-
-        # Set window title
-        pg.display.set_caption(window_title)
-
-        # Viewport creation
-        self.viewport = ViewPort(pos = Vector2(0, 50), size = self.size - Vector2(0, 50), screen = self.screen)
-
-        # Menu bar creation
-        self.menubar = MenuBar(self.screen, Vector2(self.size.x, 24))
-        file_menu = Menu("File", theme={})
-        file_menu.add_command("New", lambda: print("New file"))
-        file_menu.add_command("Save", self.game.save)
-        file_menu.add_command("Save As", lambda :self.game.save(save_as=True))
-        file_menu.add_command("Open", self.game.open)
-        file_menu.add_command("Examples", lambda: print("Open examples"))
-        file_menu.add_command("Preferences", lambda: print("Open settings"))
-        file_menu.add_command("Exit", lambda: (pg.quit(), exit(0)))
-        self.menubar.add_menu(file_menu)
-        edit_menu = Menu("Edit", theme={})
-        edit_menu.add_command("Undo", lambda: print("Undo action"))
-        edit_menu.add_command("Redo", lambda: print("Redo action"))
-        edit_menu.add_command("Clear world", lambda: self.game.clear())
-        edit_menu.add_command("Randomize chunk", lambda: print("Randomize chunk"))
-        self.menubar.add_menu(edit_menu)
-        sim_menu = Menu("Simulation", theme={})
-        sim_menu.add_command("Next Generation", lambda: (self.game.compute_next_generation(), self.game.update_chunk_map()))
-        sim_menu.add_command("Start simulation", lambda: print("Start simulation"))
-        sim_menu.add_command("Pause simulation", lambda: print("Pause simulation"))
-        self.menubar.add_menu(sim_menu)
-        about_menu = Menu("About", theme={})
-        about_menu.add_command("About LifeGen", lambda: messagebox.showinfo("About LifeGen", "LifeGen v1.0\nA simple life simulation application."))
-        about_menu.add_command("Help", lambda: messagebox.showinfo("Help", "Use mouse to pan and zoom.\nClick to toggle cells.\nSpace to advance one generation.\nCtrl+S to save."))
-        about_menu.add_command("Check for updates", lambda: print("Check for updates"))
-        about_menu.add_command("Report a bug", lambda: print("Report a bug"))
-        self.menubar.add_menu(about_menu)
-        
-
-
-    def run(self):
-        """Main application loop."""
-        while self.is_running:
-            self.screen.fill((0, 0, 0))
-
-            # Draw viewport area and rectangles
-            self.viewport.draw((0, 0, 0))
-            
-            
-            
-            # Draw all cells  TODO: Optimize drawing by only drawing visible chunks
-            for chunk_pos, cells in self.game.chunk_map.items():
-                for cell in cells:
-                    self.viewport.draw_rect((255, 255, 255), cell, cell+Vector2(1.005, 1.005))
-
-            # Draw menu bar
-            self.menubar.draw()
-
-
-            # Limit FPS and update screen
-            self.clock.tick(self.fps)
-            pg.display.flip()
-
-            # Process incoming events
-            self.handle_events(pg.event.get())
-
-    def handle_events(self, events):
-        """Handle all pygame events."""
-        for event in events:
-            if event.type == pg.QUIT:
-                pg.quit()
-                self.is_running = False
-                exit(0)
-
-            if event.type == pg.MOUSEBUTTONDOWN:
-                self.viewport.dragging = True
-                self.last_mouse_pos = Vector2(pg.mouse.get_pos())
-                self.drag_delta = 0
-
-            elif event.type == pg.MOUSEBUTTONUP:
-                self.viewport.dragging = False
-                if self.drag_delta < 2 and event.button == 1:
-                    cell_pos = self.viewport.screen_to_viewport(Vector2(pg.mouse.get_pos()))
-                    cell_pos.x = floor(cell_pos.x)
-                    cell_pos.y = floor(cell_pos.y)
-                    self.game.toggle_cell(cell_pos)
-
-            elif event.type == pg.MOUSEMOTION:
-                if self.viewport.dragging:
-                    self.viewport.handle_drag(Vector2(pg.mouse.get_pos()), self.last_mouse_pos)
-                    self.drag_delta += (self.last_mouse_pos - Vector2(pg.mouse.get_pos())).length()
-                    self.last_mouse_pos = Vector2(pg.mouse.get_pos())
-
-            # Zoom in/out with mouse wheel
-            elif event.type == pg.MOUSEWHEEL:
-                self.viewport.handle_zoom(Vector2(pg.mouse.get_pos()), event.precise_y)
-
-            elif event.type == pg.KEYDOWN:
-                if event.key == pg.K_SPACE:
-                    self.game.compute_next_generation() # Advance simulation by one generation
-                    self.game.update_chunk_map()
-                if event.key == pg.K_s and pg.key.get_mods() & pg.KMOD_CTRL:
-                    # Save file dialog
-                    self.game.save()
-
-            if event.type == pg.MOUSEBUTTONDOWN or self.menubar.active or self.menubar.get_collision_box().collidepoint(pg.mouse.get_pos()):
-                self.menubar.handle_events(event, pg.key, pg.mouse)
-
-
 class ViewPort:
     def __init__(self, pos, size, screen):
         # Coordinate space visible inside viewport (world coordinates)
@@ -617,6 +512,198 @@ class ViewPort:
         screen_pos2.x, screen_pos2.y = floor(screen_pos2.x), floor(screen_pos2.y)
         pg.draw.rect(self.screen, color,
                      (screen_pos1, screen_pos2 - screen_pos1))
+
+
+class Button:
+    def __init__(self, screen, width, height, text, background_color, foreground_color):
+        self.screen = screen
+        self.active = False
+        self.state = False
+
+    def draw(self):
+        pass
+
+    def handle_event(self, event):
+        if event.type == pg.MOUSEBUTTONDOWN:
+            self.on_press()
+            self.active  = True
+            self.state = True
+
+    
+    def get_collision_box(self):
+        pass
+
+    def get_state(self):
+        pass
+
+    def on_press(self):
+        pass
+
+    def on_release(self):
+        pass
+
+
+class Slider:
+    def __init__(self):
+        pass
+    
+    def draw(self):
+        pass
+
+    def handle_event(self, event):
+        pass
+
+    def get_collision_box(self):
+        pass
+
+    def get_value(self):
+        pass
+
+class Label:
+    def __init__(self):
+        pass
+
+    def draw(self):
+        pass
+
+    def handle_event(self, event):
+        pass
+
+    def get_collision_box(self):
+        pass
+
+
+class App:
+    def __init__(self, game_instance: Game, window_title="LifeGen", fps=60):
+        pg.init()
+        self.fps = fps
+        self.clock = pg.time.Clock()
+        self.tick_event = pg.USEREVENT + 1
+        pg.time.set_timer(self.tick_event, 1000//20)  # Set timer to trigger every 1/20th of a second
+        self.is_running = True
+        self.game = game_instance
+
+        """for i in range(-50, 50):
+            for j in range(-50, 50):
+                if random.random() < 0.5:
+                    self.game.add_cell(Vector2(i, j))"""
+
+        self.last_mouse_pos = Vector2(pg.mouse.get_pos())
+        self.drag_delta = 0  # To detect if a click is a drag or a simple click
+
+        # Window size and creation
+        self.size = Vector2(1000, 800)
+        self.screen = pg.display.set_mode(self.size, pg.RESIZABLE)
+
+        # Set window title
+        pg.display.set_caption(window_title)
+
+        # Viewport creation
+        self.viewport = ViewPort(pos = Vector2(0, 50), size = self.size - Vector2(0, 50), screen = self.screen)
+
+        # Menu bar creation
+        self.menubar = MenuBar(self.screen, Vector2(self.size.x, 24))
+        file_menu = Menu("File", theme={})
+        file_menu.add_command("New", lambda: print("New file"))
+        file_menu.add_command("Save", self.game.save)
+        file_menu.add_command("Save As", lambda :self.game.save(save_as=True))
+        file_menu.add_command("Open", self.game.open)
+        file_menu.add_command("Examples", lambda: print("Open examples"))
+        file_menu.add_command("Preferences", lambda: print("Open settings"))
+        file_menu.add_command("Exit", lambda: (pg.quit(), exit(0)))
+        self.menubar.add_menu(file_menu)
+        edit_menu = Menu("Edit", theme={})
+        edit_menu.add_command("Undo", lambda: print("Undo action"))
+        edit_menu.add_command("Redo", lambda: print("Redo action"))
+        edit_menu.add_command("Clear world", lambda: self.game.clear())
+        edit_menu.add_command("Randomize chunk", lambda: print("Randomize chunk"))
+        self.menubar.add_menu(edit_menu)
+        sim_menu = Menu("Simulation", theme={})
+        sim_menu.add_command("Next Generation", lambda: (self.game.compute_next_generation(), self.game.update_chunk_map()))
+        sim_menu.add_command("Start simulation", lambda: print("Start simulation"))
+        sim_menu.add_command("Pause simulation", lambda: print("Pause simulation"))
+        self.menubar.add_menu(sim_menu)
+        about_menu = Menu("About", theme={})
+        about_menu.add_command("About LifeGen", lambda: messagebox.showinfo("About LifeGen", "LifeGen v1.0\nA simple life simulation application."))
+        about_menu.add_command("Help", lambda: messagebox.showinfo("Help", "Use mouse to pan and zoom.\nClick to toggle cells.\nSpace to advance one generation.\nCtrl+S to save."))
+        about_menu.add_command("Check for updates", lambda: print("Check for updates"))
+        about_menu.add_command("Report a bug", lambda: print("Report a bug"))
+        self.menubar.add_menu(about_menu)
+        
+
+
+    def run(self):
+        """Main application loop."""
+        while self.is_running:
+            self.screen.fill((0, 0, 0))
+
+            # Draw viewport area and rectangles
+            self.viewport.draw((0, 0, 0))
+            
+            
+            
+            # Draw all cells  TODO: Optimize drawing by only drawing visible chunks
+            for chunk_pos, cells in self.game.chunk_map.items():
+                for cell in cells:
+                    self.viewport.draw_rect((255, 255, 255), cell, cell+Vector2(1.005, 1.005))
+
+            # Draw menu bar
+            self.menubar.draw()
+
+
+            # Limit FPS and update screen
+            self.clock.tick(self.fps)
+            pg.display.flip()
+
+            # Process incoming events
+            self.handle_events(pg.event.get())
+
+    def handle_events(self, events):
+        """Handle all pygame events."""
+        for event in events:
+            if event.type == pg.QUIT:
+                pg.quit()
+                self.is_running = False
+                exit(0)
+
+            if event.type == pg.MOUSEBUTTONDOWN:
+                self.viewport.dragging = True
+                self.last_mouse_pos = Vector2(pg.mouse.get_pos())
+                self.drag_delta = 0
+
+            elif event.type == pg.MOUSEBUTTONUP:
+                self.viewport.dragging = False
+                if self.drag_delta < 2 and event.button == 1:
+                    cell_pos = self.viewport.screen_to_viewport(Vector2(pg.mouse.get_pos()))
+                    cell_pos.x = floor(cell_pos.x)
+                    cell_pos.y = floor(cell_pos.y)
+                    self.game.toggle_cell(cell_pos)
+
+            elif event.type == pg.MOUSEMOTION:
+                if self.viewport.dragging:
+                    self.viewport.handle_drag(Vector2(pg.mouse.get_pos()), self.last_mouse_pos)
+                    self.drag_delta += (self.last_mouse_pos - Vector2(pg.mouse.get_pos())).length()
+                    self.last_mouse_pos = Vector2(pg.mouse.get_pos())
+
+            # Zoom in/out with mouse wheel
+            elif event.type == pg.MOUSEWHEEL:
+                self.viewport.handle_zoom(Vector2(pg.mouse.get_pos()), event.precise_y)
+
+            elif event.type == pg.KEYDOWN:
+                if event.key == pg.K_SPACE:
+                    self.game.compute_next_generation() # Advance simulation by one generation
+                    self.game.update_chunk_map()
+                if event.key == pg.K_s and pg.key.get_mods() & pg.KMOD_CTRL:
+                    # Save file dialog
+                    self.game.save()
+
+            if event.type == pg.MOUSEBUTTONDOWN or self.menubar.active or self.menubar.get_collision_box().collidepoint(pg.mouse.get_pos()):
+                self.menubar.handle_events(event, pg.key, pg.mouse)
+            
+            if event.type == self.tick_event:
+                if pg.key.get_pressed()[pg.K_END]:  # If space is held down, keep advancing generations
+                    self.game.compute_next_generation()
+                    self.game.update_chunk_map()
 
 
 game = Game()
